@@ -1,0 +1,110 @@
+	<!DOCTYPE html>
+<html>
+<head>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/bluebird/3.4.7/bluebird.min.js" integrity="sha256-ub+g/NI4m6dSDdm4RTNhaLvBDZhqp9C+fdw0bAEp0KE=" crossorigin="anonymous"></script>
+	<style> .ib { display:inline-block; } </style>
+</head>
+<body style="color:#eee;background-color:#000">
+	<div>
+		<div class="ib">
+			<input type="text" placeholder="Hostname" class="hostname input" /> | 
+		</div>
+		<div class="ib">
+			<input type="text" placeholder="API Key" class="api-key"/> &amp;
+			<input type="password" placeholder="API Secret" class="api-secret" />
+		</div>
+		<div class="ib">... or ...</div>
+		<div class="ib">
+			<input type="text" placeholder="Token" class="api-token"/>
+		</div>
+		<div class="ib">
+			<input type="button" value="Fetch" onclick="main()"/>
+		</div>
+	</div>
+ </body>
+ <script>
+ const persistedInputs=["hostname","api-key","api-secret"]
+ persistedInputs.forEach(input=>{
+	    localStorage.getItem(input) && $(".input."+input).val(localStorage.getItem(input))
+	 	$("input."+input).on("change",function(event){localStorage.setItem(input,this.value)})
+	})
+
+ function main(){
+		var hostname=$('input.hostname').val()
+		var nodes=[]
+		var edges=[]
+		if(!hostname.match(/^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])(\.([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]))*(:[0-9]{0,6})?$/)){
+				//Regex per http://stackoverflow.com/questions/106179/regular-expression-to-match-dns-hostname-or-ip-address   http://stackoverflow.com/a/3824105
+				alert("Invalid hostname")
+				return
+			}
+		var base="https://"+hostname+"/api/3.0/"
+	 	return Promise
+		.resolve(
+				$('#token').val()
+				|| $.post(base+"login?"+$.param({
+							client_id:$('input.api-key').val(),
+							client_secret:$('input.api-secret').val()
+						}))
+					.then(res=>res.access_token)
+			)
+		.then(token=>{
+				$('#token').val(token);
+				return (method,data)=>
+						$.ajax(base+method,{
+								headers: {Authorization: "token "+state.access_token},
+								data: data}
+							)
+					;
+			})
+		.then(sessionGet=>{
+				sessionGet("lookml_models",{fields:"name,label,explores(hidden,name,label)"})
+				.then(models=>Promise.props({
+						models: models,
+						explores: Promise.resolve(models)
+									.map(m=>m.explores.map(extendFn({model:m.name})))
+									.reduce(flatten,[])
+									.map(e=>sessionGet("/lookml_models/"+e.model+"/explores/"+e.name,
+											{fields:"id,label,joins"}
+										),{concurrency:2})
+					}))
+				.then(peek)
+				.then(me=>{
+						var nodes=[]
+								.concat( //Each model is a node
+										me.models.map(...)
+									)
+								.concat( //Each explore is a node
+										me.explores.map(...)
+									)
+								.concat( //Each joined view is a node
+										me.explores
+										.map()
+										.reduce(flatten,[])
+										.map()
+									)
+								.filter(uniqueBy('type','model','name'))
+						var edges=[]
+								.concat( //Model to explore edge
+									
+									)
+								.concat( // Join edges
+									
+									)
+								.concat( // Multi-table joins, e.g. FROM A,B JOIN C on C.x=A.x AND C.y=B.y
+									
+									)
+					})
+			})
+		.catch(function(e){
+				console.error(arguments)
+				alert("Done with error")
+			})
+	}
+	
+function flatten(a,x){return a.concat(b)}
+function extendFn(o){return x=$.extend(x,o)}
+function peek(o){console.log(o); return o;}
+ </script>
+</html>
